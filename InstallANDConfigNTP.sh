@@ -1,12 +1,10 @@
 #!/usr/bin/env bash
+#Purpose: Install and configure NTP on the SSH server
+#su
 
 
 
-#-------Variables---------#
-NTPServers1=""
-NTPServers2=""
-NTPServers3=""
-NTPServers4=""
+
 #-------Function---------#
 NTPConfig () {
 echo "Config modification"
@@ -18,17 +16,10 @@ driftfile /var/lib/ntp/ntp.drift
 # Leap seconds definition provided by tzdata
 leapfile /usr/share/zoneinfo/leap-seconds.list
 
-# Enable this if you want statistics to be logged.
-#statsdir /var/log/ntpstats/
-
 statistics loopstats peerstats clockstats
 filegen loopstats file loopstats type day enable
 filegen peerstats file peerstats type day enable
 filegen clockstats file clockstats type day enable
-
-
-# You do need to talk to an NTP server or two (or three).
-#server ntp.your-provider.example
 
 # pool.ntp.org maps to about 1000 low-stratum NTP servers.  Your server will
 # pick a different set every time it starts up.  Please consider joining the
@@ -55,29 +46,16 @@ restrict ::1
 
 # Needed for adding pool entries
 restrict source notrap nomodify noquery
-
-# Clients from this (example!) subnet have unlimited access, but only if
-# cryptographically authenticated.
-#restrict 192.168.123.0 mask 255.255.255.0 notrust
-
-
-# If you want to provide time to your local subnet, change the next line.
-# (Again, the address is an example only.)
-#broadcast 192.168.123.255
-
-# If you want to listen to time broadcasts on your local subnet, de-comment the
-# next lines.  Please do this only if you trust everybody on the network!
-#disable auth
-#broadcastclient" >> /etc/ntp.conf
+" >> /etc/ntp.conf
 }
 packagecheck () {
-which $1
-if [[ $? -eq 0]]; then {
+
+if which $1 ; then
     echo "$1 is installed"
-} else {
+ else
     echo "$1 is not installed"
     apt install $1 -y
-}
+  fi
 }
 testconfigNTP () {
     echo "Show "
@@ -88,8 +66,36 @@ packagecheck ntpstat
 packagecheck ntpdate
 
 # Check if the ntp file exist and create a .old
-if [[ -d /etc/ntp.conf]]; then {
-    mv /etc/ntp.conf.old
+if [[ -e /etc/ntp.conf ]]; then
+    mv /etc/ntp.conf /etc/ntp.conf.old
     touch /etc/ntp.conf
-    NTPConfig NTPServers1 NTPServers2 NTPServers3 NTPServers4
-}
+
+fi
+
+if [[ hostname -eq "ssh.lin3.actualit.info" ]]; then
+    NTPServers1="time-a-g.nist.gov"
+    NTPServers2="time-a-wwv.nist.gov"
+    NTPServers3="time-d-b.nist.gov"
+    NTPServers4="utcnist2.colorado.edu"
+    NTPConfig $NTPServers1 $NTPServers2 $NTPServers3 $NTPServers4
+ else
+    echo "Enter the SSH Server IP [10.0.0.1x] : "
+    read -r SSHServer
+    NTPServers1=$SSHServer
+    NTPServers2="time-a-g.nist.gov"
+    NTPConfig $NTPServers1 $NTPServers2
+    sed -i '/pool  iburst/d' /etc/ntp.conf
+fi
+
+service ntp restart
+# Show log
+echo "Show Log"
+ntpq -c rv
+
+# Confirm the synchronisation
+echo "Show"
+ntpstat
+
+echo "Change timezone"
+timedatectl set-timezone Europe/Zurich
+timedatectl
